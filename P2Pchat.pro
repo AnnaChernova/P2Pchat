@@ -26,13 +26,23 @@ CONFIG += c++11
 
 SOURCES += \
         main.cpp \
-        p2pchat.cpp
+        p2pchat.cpp \
+    server.cpp \
+    makeserver.cpp \
+    makeclient.cpp
 
 HEADERS += \
-        p2pchat.h
+        p2pchat.h \
+    iserver.h \
+    server.h \
+    makeserver.h \
+    makeclient.h
 
 FORMS += \
-        p2pchat.ui
+        p2pchat.ui \
+    server.ui \
+    makeserver.ui \
+    makeclient.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
