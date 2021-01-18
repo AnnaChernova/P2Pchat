@@ -5,6 +5,7 @@
 #-------------------------------------------------
 
 QT       += core gui
+QT       += network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -25,22 +26,24 @@ DEFINES += QT_DEPRECATED_WARNINGS
 CONFIG += c++11
 
 SOURCES += \
+    client.cpp \
         main.cpp \
         p2pchat.cpp \
-    server.cpp \
     makeserver.cpp \
-    makeclient.cpp
+    makeclient.cpp \
+    peer.cpp \
+    server.cpp
 
 HEADERS += \
+    client.h \
         p2pchat.h \
-    iserver.h \
-    server.h \
     makeserver.h \
-    makeclient.h
+    makeclient.h \
+    peer.h \
+    server.h
 
 FORMS += \
         p2pchat.ui \
-    server.ui \
     makeserver.ui \
     makeclient.ui
 

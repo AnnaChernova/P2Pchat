@@ -1,22 +1,40 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include <QDialog>
+#include <QObject>
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <QtNetwork>
+#include <QDebug>
 
-namespace Ui {
-class Server;
-}
+#include <QTextStream>
+#include <QTime>
+#include <QMessageBox>
+#include <QDateTime>
+#include <QString>
 
-class Server : public QDialog
+#include <memory>
+#include <vector>
+
+class Server : public QTcpServer
 {
     Q_OBJECT
 
-public:
-    explicit Server(QWidget *parent = nullptr);
-    ~Server();
+    QTcpServer* pServerSocket;
+    std::vector<QTcpSocket*> clients;
 
-private:
-    Ui::Server *ui;
+public:
+    explicit Server(QObject* parent = nullptr);
+
+    QString getServerIP();
+    uint getServerPort();
+    void sendMsgToClient(QByteArray sendingText);
+
+private slots:
+    void newConnection();
+    void clientDisconnection();
+    void readMsgFromClient();
 };
 
 #endif // SERVER_H
+
