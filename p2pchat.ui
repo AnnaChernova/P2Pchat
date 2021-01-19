@@ -21,7 +21,7 @@
        <number>2</number>
       </property>
       <item>
-       <widget class="QPushButton" name="serverButton">
+       <widget class="QPushButton" name="connectFromIP">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
           <horstretch>0</horstretch>
@@ -33,12 +33,12 @@
 background-color: rgb(138, 226, 52);</string>
         </property>
         <property name="text">
-         <string>Я - сервер!</string>
+         <string>Ввести IP-адрес</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="clientButton">
+       <widget class="QPushButton" name="connectAutomatically">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
           <horstretch>0</horstretch>
@@ -50,7 +50,7 @@ background-color: rgb(138, 226, 52);</string>
 background-color: rgb(138, 226, 52);</string>
         </property>
         <property name="text">
-         <string>Я - клиент!</string>
+         <string>Подключиться автоматически</string>
         </property>
        </widget>
       </item>

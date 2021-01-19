@@ -23,17 +23,27 @@ class Server : public QTcpServer
     QTcpServer* pServerSocket;
     std::vector<QTcpSocket*> clients;
 
+    const QString peersHistoryFilename = "PeersHistory.txt";
+    const QString chatHistoryFilename = "ChatHistory.txt";
+
 public:
-    explicit Server(QObject* parent = nullptr);
+    Server(QObject* parent = nullptr);
 
     QString getServerIP();
     uint getServerPort();
     void sendMsgToClient(QByteArray sendingText);
 
+signals:
+    void newMessage(QString sender, QString newMsg);
+    void sendFileToClients(QByteArray sendingFile);
+
 private slots:
     void newConnection();
     void clientDisconnection();
     void readMsgFromClient();
+
+    void sendPeersListToClients(QByteArray sendingFile);
+    void sendHistoryFileToClients(QByteArray sendingFile);
 };
 
 #endif // SERVER_H

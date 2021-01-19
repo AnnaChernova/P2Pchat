@@ -1,21 +1,17 @@
-#include "p2pchat.h"
-//#include <QApplication>
-#include <QCoreApplication>
+#include <QApplication>
 
 #include "server.h"
-#include "client.h"
+#include "connection.h"
 #include "peer.h"
+
+#include "chatdialog.h"
 
 int main(int argc, char *argv[])
 {
-    QCoreApplication a(argc, argv);
-//    Server server;
+    QApplication a(argc, argv);
 
-//    Client krisya;
-//    krisya.signalEmitator();
-//    QApplication a(argc, argv);
-//    P2Pchat w;
-//    w.show();
-    Peer firstPeer;
+    ChatDialog dialog;
+    dialog.show();
+
     return a.exec();
 }

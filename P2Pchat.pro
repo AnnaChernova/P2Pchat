@@ -26,26 +26,20 @@ DEFINES += QT_DEPRECATED_WARNINGS
 CONFIG += c++11
 
 SOURCES += \
-    client.cpp \
+    chatdialog.cpp \
+    connection.cpp \
         main.cpp \
-        p2pchat.cpp \
-    makeserver.cpp \
-    makeclient.cpp \
     peer.cpp \
     server.cpp
 
 HEADERS += \
-    client.h \
-        p2pchat.h \
-    makeserver.h \
-    makeclient.h \
+    chatdialog.h \
+    connection.h \
     peer.h \
     server.h
 
 FORMS += \
-        p2pchat.ui \
-    makeserver.ui \
-    makeclient.ui
+    chatdialog.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

@@ -20,7 +20,8 @@ Server::Server(QObject* parent)
 
 QString Server::getServerIP()
 {
-    return QNetworkInterface::allAddresses()[QHostAddress::LocalHost].toString();
+    return pServerSocket->serverAddress().toString();
+//    return QNetworkInterface::allAddresses()[QHostAddress::LocalHost].toString();
 }
 
 uint Server::getServerPort()
@@ -37,10 +38,9 @@ void Server::newConnection()
 
     connect(pSocket, &QTcpSocket::readyRead, this, &Server::readMsgFromClient);
     connect(pSocket, &QTcpSocket::disconnected, this, &Server::clientDisconnection);
+    connect(this, &Server::sendFileToClients, this, &Server::sendHistoryFileToClients);
 
     pSocket->write("Welcome, my friend!\n");
-    pSocket->flush();
-
     pSocket->waitForBytesWritten();
 }
 
@@ -55,8 +55,32 @@ void Server::readMsgFromClient()
 {
     QTcpSocket* senderSocket = qobject_cast<QTcpSocket*>(QObject::sender());
     QByteArray byteArray = senderSocket->readAll();
-    qDebug() << QTime::currentTime().toString() << senderSocket->peerAddress().toString() << byteArray;
+    QString sender = senderSocket->peerAddress().toString();
+
+    qDebug() << QTime::currentTime().toString() << sender << byteArray;
     sendMsgToClient(byteArray);
+    QString message = QString(byteArray);
+
+    emit newMessage(sender, message);
+}
+
+void Server::sendPeersListToClients(QByteArray sendingFile)
+{
+    // TODO: merge files
+    for (auto peer : clients)
+    {
+        peer->write(sendingFile);
+        peer->waitForBytesWritten();
+    }
+}
+
+void Server::sendHistoryFileToClients(QByteArray sendingFile)
+{
+    for (auto peer : clients)
+    {
+        peer->write(sendingFile);
+        peer->waitForBytesWritten();
+    }
 }
 
 void Server::sendMsgToClient(QByteArray sendingText)
@@ -65,5 +89,6 @@ void Server::sendMsgToClient(QByteArray sendingText)
     for (auto peer : clients)
     {
         peer->write(byteArray);
+        peer->waitForBytesWritten();
     }
 }

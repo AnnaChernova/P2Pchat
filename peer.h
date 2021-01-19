@@ -1,54 +1,47 @@
 #ifndef PEER_H
 #define PEER_H
 
-#include <QFile>
-#include <QString>
-#include <QSet>
-#include <QPair>
-#include <QTextStream>
-#include <QStringList>
-
-#include <memory>
-#include <fstream>
-
 #include "server.h"
-#include "client.h"
+#include "connection.h"
 
-class Peer
+
+class Peer : public QObject
 {
+    Q_OBJECT
+
     Server* pServer = nullptr;
-    Client* pClient = nullptr;
+    Connection* pClient = nullptr;
 
     const QString peersHistoryFilename = "PeersHistory.txt";
-    QString chatHistoryFilename = "ChatHistory.txt";
+    const QString chatHistoryFilename = "ChatHistory.txt";
 
-    QFile PeersHistoryFile;
-    QFile ChatHistoryFile;
+    QList<QPair<QString, uint>> Peers; // from PeersHistoryFile
+    QList<QString> history;
 
-    QSet<QPair<QString, uint>> Peers;
-
-    bool willIPbeEntered = false;
-    bool getServerfromPeersHistoryFile = false;
+    bool isPeersHistoryExists();
 
 public:
-    Peer();
+    Peer(QObject* parent = nullptr);
 
-    /*
-     * Серверная часть от пира.
-     */
-    void tellHistorytoClient();
-    void getListOfPeersFromClient(std::fstream& pPeershf);
-    void parsePeersHistoryFile();
+    void readPeersFromFile();
+    void refreshChatHistoryLocal();
     void refreshPeersHistoryFile();
 
-    /*
-     * Клиентская часть от пира.
-     */
-    std::fstream& tellPeersListToServer();
-    void getHistoryFromServer();
+    // Серверная часть от пира.
+    void tellHistorytoClients();
 
-private:
+    // Клиентская часть от пира.
+    void tellPeersListToServer();
+    void sendMessageFromUiClientToServer(const QString &message);
+    void sendMsgToServer(QByteArray sendingText);
 
+signals:
+    void newMessage(const QString &from, const QString &message);
+    void userConnected(const QString &nick);
+    void userLeft(const QString &nick);
+
+private slots:
+    void recordingNewMsgEverywhere(QString sender, QString newMsg);
 
 };
 
