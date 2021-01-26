@@ -1,94 +1,190 @@
 #include "server.h"
 
-Server::Server(QObject* parent)
+Server::Server(const QHostAddress &address, quint16 port, QObject *parent)
     : QTcpServer(parent)
 {
-    pServerSocket = new QTcpServer(this);
-
-    if(!pServerSocket->listen(QHostAddress::Any, 9999))
-    {
-        qDebug() << QTime::currentTime().toString() << "Server did not start!";
-        QMessageBox::critical(0, "Server Error", "Unable to start the server:" + pServerSocket->errorString());
-        pServerSocket->close();
-    }
-    else
-    {
-        connect(pServerSocket, &QTcpServer::newConnection, this, &Server::newConnection);
-        qDebug() << QTime::currentTime().toString()<< "Server started!" << getServerIP();
-    }
+    listen(address, port);
+    connect(this, &QTcpServer::newConnection, this, &Server::newConnection);
 }
 
-QString Server::getServerIP()
+Server::~Server()
 {
-    return pServerSocket->serverAddress().toString();
-//    return QNetworkInterface::allAddresses()[QHostAddress::LocalHost].toString();
-}
-
-uint Server::getServerPort()
-{
-    return pServerSocket->serverPort();
+    for (auto& connectoin : activeUsers)
+    {
+        connectoin->close();
+    }
 }
 
 void Server::newConnection()
 {
-//    std::unique_ptr<QTcpSocket> pSocket = std::make_unique<QTcpSocket>(pServer->nextPendingConnection());
-    QTcpSocket* pSocket = pServerSocket->nextPendingConnection();
-    clients.push_back(pSocket);
-    qDebug() << QTime::currentTime().toString() << "New client has just connected." << pSocket->peerAddress().toString();
+    qDebug().noquote() << "\n" << QTime::currentTime().toString() << "Server::newConnection BEGIN";
+    QTcpSocket* newUser = nextPendingConnection();
 
-    connect(pSocket, &QTcpSocket::readyRead, this, &Server::readMsgFromClient);
-    connect(pSocket, &QTcpSocket::disconnected, this, &Server::clientDisconnection);
-    connect(this, &Server::sendFileToClients, this, &Server::sendHistoryFileToClients);
+    // Добавляем его в список активных соединений.
+    activeUsers.append(newUser);
+    qDebug() << QTime::currentTime().toString() << "Server::newConnection New User" << newUser->peerAddress().toString() << newUser->peerPort();
 
-    pSocket->write("Welcome, my friend!\n");
-    pSocket->waitForBytesWritten();
+    connect(newUser, &QTcpSocket::readyRead, this, &Server::readMessage);
+    connect(newUser, &QTcpSocket::disconnected, this, &Server::disconnection);
+
+    // Отсылаем историю новому участнику.
+    QString historyMsg = convertToHistoryDT(packHistory(this->history));// + '/';
+    newUser->write(historyMsg.toUtf8());
+    qDebug() << QTime::currentTime().toString() << "HISTORY SENT TO NEW USER!" << historyMsg;
+    newUser->flush();
+
+    qDebug() << QTime::currentTime().toString() << "Server::newConnection END";
 }
 
-void Server::clientDisconnection()
+void Server::parseListOfPeers(QString& listOfPeers)
 {
-    QTcpSocket* senderSocket = qobject_cast<QTcpSocket*>(QObject::sender());
-    qDebug() << QTime::currentTime().toString() << "Client disconnected!" << senderSocket->peerAddress().toString();
-    senderSocket->close();
-}
+    qDebug().noquote() << "\n" << QTime::currentTime().toString() << "Server::parseListOfPeers BEGIN";
+    QTextStream streamRaw(&listOfPeers);
 
-void Server::readMsgFromClient()
-{
-    QTcpSocket* senderSocket = qobject_cast<QTcpSocket*>(QObject::sender());
-    QByteArray byteArray = senderSocket->readAll();
-    QString sender = senderSocket->peerAddress().toString();
-
-    qDebug() << QTime::currentTime().toString() << sender << byteArray;
-    sendMsgToClient(byteArray);
-    QString message = QString(byteArray);
-
-    emit newMessage(sender, message);
-}
-
-void Server::sendPeersListToClients(QByteArray sendingFile)
-{
-    // TODO: merge files
-    for (auto peer : clients)
+    while(!streamRaw.atEnd())
     {
-        peer->write(sendingFile);
-        peer->waitForBytesWritten();
+        QString curLine = streamRaw.readLine();
+        QTextStream parseLine(&curLine);
+        QString peerIP;
+        quint16 peerPort;
+        parseLine >> peerIP >> peerPort;
+
+        QPair<QString, quint16> newpeer = qMakePair(peerIP, peerPort);
+        if (!knownPeers.contains(newpeer))
+        {
+            knownPeers.append(newpeer);
+        }
+    }
+    qDebug() << QTime::currentTime().toString() << "LIST_SIZE" << knownPeers;
+    qDebug() << QTime::currentTime().toString() << "Server::parseListOfPeers END";
+}
+
+QString Server::packHistory(QList<QString>& history)
+{
+    QString newMsg;
+    QTextStream streamMsg(&newMsg);
+    for(auto& record : history)
+    {
+        streamMsg << record << '\n';
+    }
+    qDebug().noquote() << "\n" << QTime::currentTime().toString() << "Server::packHistory HISTORY" << newMsg;
+    return newMsg;
+}
+
+QString Server::packListOfPeers(QList<QPair<QString, quint16>>& listOfPeers)
+{
+    QString newMsg;
+    QTextStream streamMsg(&newMsg);
+    for(auto& peer : listOfPeers)
+    {
+        streamMsg << peer.first << ' ' << peer.second << '\n';
+    }
+    qDebug().noquote() << "\n" << QTime::currentTime().toString() << "Server::packListOfPeers PEERS" << newMsg;
+    return newMsg;
+}
+
+void Server::disconnection()
+{
+    qDebug().noquote() << "\n" << QTime::currentTime().toString() << "Server::disconnection BEGIN";
+    QTcpSocket* disUser = qobject_cast<QTcpSocket*>(sender());
+
+    // Отсылаем всем информацию об ушедшем участнике.
+    auto nick = socket_hisPeer.find(disUser);
+    serverBroadcast(convertToDisconnDT(*nick));//+ '/');
+
+    // Удаляем его из списка активных соединений.
+    qDebug() << QTime::currentTime().toString() << "DISCONNECTED CLIENT nick" << disUser << *nick;
+    qDebug() << QTime::currentTime().toString() << "ACTIVE USERS" << activeUsers;
+    activeUsers.removeAll(disUser);
+    socket_hisPeer.remove(disUser);
+    qDebug() << QTime::currentTime().toString() << "ACTIVE USERS" << activeUsers;
+    qDebug() << QTime::currentTime().toString() << "Server::disconnection END";
+}
+
+void Server::readMessage()
+{
+    qDebug().noquote() << "\n" << QTime::currentTime().toString() << "Server::readMessage BEGIN";
+    QTcpSocket* senderCon = qobject_cast<QTcpSocket*>(sender());
+    QByteArray rawMessage = senderCon->readAll();
+    qDebug() << QTime::currentTime().toString() << "NEW_MESSAGE_IN_SERVER" << rawMessage;
+
+    QString dataAsString = QString(rawMessage);
+    QList<QString> list = dataAsString.split('/');
+    qDebug() << QTime::currentTime().toString() << "list.size()=" << list.size();
+    for (auto &message : list)
+    {
+        QString msgWithoutType = getDataWithoutType(QString(message));
+
+        qDebug().noquote() << "\n" << QTime::currentTime().toString() << "Server::readMessage";
+
+        DataType dataType = whatKindOfData(QString(message));
+
+        switch (dataType)
+        { // по логике сюда не может прийти ничего, кроме Message, KnownPeers и NewConnection
+            case DataType::Message:
+            {
+                history.push_back(msgWithoutType);
+
+                serverBroadcast(convertToMessageDT(msgWithoutType));
+                qDebug() << QTime::currentTime().toString() << "DataType::Message SENT" << convertToMessageDT(msgWithoutType);
+                qDebug() << QTime::currentTime().toString() << "Server::readMessage END";
+                return;
+            }
+            case DataType::KnownPeers:
+            {
+                parseListOfPeers(msgWithoutType);
+
+                QString newKnownPeersMsg = packListOfPeers(knownPeers);
+                qDebug() << QTime::currentTime().toString() << "DataType::KnownPeers SENT" << convertToListOfPeersDT(newKnownPeersMsg);
+                qDebug() << QTime::currentTime().toString() << "Server::readMessage END";
+                return;
+            }
+            case DataType::NewConnection:
+            {
+                // msgWithoutType в сообщении является ником
+                socket_hisPeer.insert(senderCon, msgWithoutType);
+                qDebug() << QTime::currentTime().toString() << "socket_hisPeer" << socket_hisPeer;
+
+                // Добавляем в список известных пиров.
+                QList<QString> list = msgWithoutType.split(':');
+                QString new_ip = list.at(0);
+                quint16 new_port = list.at(1).toUInt();
+                knownPeers.emplaceBack(new_ip,new_port);
+                qDebug() << QTime::currentTime().toString() << "knownPeers" << knownPeers;
+
+                // Рассылаем всем информацию о новом подключении.
+                serverBroadcast(message);
+                qDebug() << QTime::currentTime().toString() << "DataType::NewConnection SENT" << message;
+                qDebug() << QTime::currentTime().toString() << "Server::readMessage END";
+                return;
+            }
+            case DataType::Disconnection:
+            case DataType::History:
+            case DataType::Unknown:
+            {
+                qDebug() << QTime::currentTime().toString() << "THAT MESSAGE SHOULD NOT BE SEEN (something really bad happened --> a bad message came to the server)";
+                qDebug() << QTime::currentTime().toString() << "Server::readMessage END";
+                return;
+            }
+        }
     }
 }
 
-void Server::sendHistoryFileToClients(QByteArray sendingFile)
+/**
+ * @brief ОБЯЗАТЕЛЬНО СКОНВЕРТИРОВАТЬ ИНФОРМАЦИЮ В НЕОБХОДИМЫЙ ВИД!
+ * @param message - информация для всех пользователей
+ * Информация может быть любого поддерживаемого протоколом типа.
+ */
+void Server::serverBroadcast(const QString &message)
 {
-    for (auto peer : clients)
-    {
-        peer->write(sendingFile);
-        peer->waitForBytesWritten();
-    }
-}
+    qDebug().noquote() << "\n" << QTime::currentTime().toString() << "Server::serverBroadcast BEGIN";
+    QByteArray data = message.toUtf8();
+    qDebug() << QTime::currentTime().toString() << "MESSAGE" << message;
+    qDebug() << QTime::currentTime().toString() << "ACTIVE USERS" << activeUsers.length();
 
-void Server::sendMsgToClient(QByteArray sendingText)
-{
-    QByteArray byteArray = "Server>>" + sendingText;
-    for (auto peer : clients)
+    for (auto user : activeUsers)
     {
-        peer->write(byteArray);
-        peer->waitForBytesWritten();
+        user->write(data);
     }
+    qDebug() << QTime::currentTime().toString() << "Server::serverBroadcast END";
 }

@@ -1,17 +1,11 @@
-#include <QApplication>
-
-#include "server.h"
-#include "connection.h"
-#include "peer.h"
-
 #include "chatdialog.h"
+
+#include <QApplication>
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-
-    ChatDialog dialog;
-    dialog.show();
-
+    ChatDialog w;
+    w.show();
     return a.exec();
 }

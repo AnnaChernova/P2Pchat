@@ -20,6 +20,8 @@ private slots:
     void showNewMessage(const QString &from, const QString &message);
     void showNewUser(const QString &nick);
     void showUserLeft(const QString &nick);
+    void showHistory(QList<QString> &history);
+    void appendPeer(const QList<QPair<QString, quint16>>& peers);
 
 private:
     Ui::ChatDialog *ui;

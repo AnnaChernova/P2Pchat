@@ -1,50 +1,42 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include <QObject>
 #include <QTcpServer>
 #include <QTcpSocket>
-#include <QtNetwork>
-#include <QDebug>
 
+#include <QByteArray>
 #include <QTextStream>
 #include <QTime>
-#include <QMessageBox>
-#include <QDateTime>
-#include <QString>
+#include <QThread>
 
-#include <memory>
-#include <vector>
+#include "DTP.hpp"
 
 class Server : public QTcpServer
 {
     Q_OBJECT
 
-    QTcpServer* pServerSocket;
-    std::vector<QTcpSocket*> clients;
-
-    const QString peersHistoryFilename = "PeersHistory.txt";
-    const QString chatHistoryFilename = "ChatHistory.txt";
+    QList<QTcpSocket*> activeUsers;
+    QList<QPair<QString, quint16 >> knownPeers;
+    QList<QString> history;
+    QMap<QTcpSocket*, QString> socket_hisPeer;
 
 public:
-    Server(QObject* parent = nullptr);
-
-    QString getServerIP();
-    uint getServerPort();
-    void sendMsgToClient(QByteArray sendingText);
+    Server(const QHostAddress &address = QHostAddress::Any, quint16 port = 0, QObject *parent = nullptr);
+    ~Server();
 
 signals:
-    void newMessage(QString sender, QString newMsg);
-    void sendFileToClients(QByteArray sendingFile);
+    void newMessage(const QString& from, const QString& message);
 
 private slots:
     void newConnection();
-    void clientDisconnection();
-    void readMsgFromClient();
+    void disconnection();
 
-    void sendPeersListToClients(QByteArray sendingFile);
-    void sendHistoryFileToClients(QByteArray sendingFile);
+private:
+    void readMessage();
+    void serverBroadcast(const QString& message);
+    void parseListOfPeers(QString& listOfPeers);
+    QString packHistory(QList<QString>& history);
+    QString packListOfPeers(QList<QPair<QString, quint16>>& listOfPeers);
 };
 
 #endif // SERVER_H
-

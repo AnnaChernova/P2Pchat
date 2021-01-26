@@ -28,7 +28,7 @@ CONFIG += c++11
 SOURCES += \
     chatdialog.cpp \
     connection.cpp \
-        main.cpp \
+    main.cpp \
     peer.cpp \
     server.cpp
 

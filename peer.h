@@ -1,48 +1,65 @@
 #ifndef PEER_H
 #define PEER_H
 
+#include <QObject>
+#include <QString>
+#include <QTcpSocket>
+#include <QTcpServer>
+#include <QList>
+#include <QThread>
+
 #include "server.h"
 #include "connection.h"
-
 
 class Peer : public QObject
 {
     Q_OBJECT
 
-    Server* pServer = nullptr;
-    Connection* pClient = nullptr;
-
-    const QString peersHistoryFilename = "PeersHistory.txt";
-    const QString chatHistoryFilename = "ChatHistory.txt";
-
-    QList<QPair<QString, uint>> Peers; // from PeersHistoryFile
-    QList<QString> history;
-
-    bool isPeersHistoryExists();
+    Server* pPeerServer;
+    Server server;
+    Connection* pClient;
+    QList<QPair<QString, quint16>> knownPeers;
+    quint16 listeningPort;
+    QString localIP;
 
 public:
-    Peer(QObject* parent = nullptr);
+    Peer();
 
+    bool successfullConnection = false;
+
+    const QString peersHistoryFilename = "PeersHistory.txt";
+    const QString configFilename = "config.txt";
+
+    void tryToConnect();
     void readPeersFromFile();
+    QString knownPeersToQString();
+    QString clientNickName() const;
+    void sendMessage(const QString &message);
+
     void refreshChatHistoryLocal();
-    void refreshPeersHistoryFile();
+    void writePeersToFile();
 
-    // Серверная часть от пира.
-    void tellHistorytoClients();
-
-    // Клиентская часть от пира.
-    void tellPeersListToServer();
-    void sendMessageFromUiClientToServer(const QString &message);
-    void sendMsgToServer(QByteArray sendingText);
+    void unpackNewListOfPeers();
 
 signals:
-    void newMessage(const QString &from, const QString &message);
-    void userConnected(const QString &nick);
-    void userLeft(const QString &nick);
+    void newMessage_fromPeer_fromClient_fromServer(const QString& from, const QString& message);
+    void userConnected_fromPeer_fromClient_fromServer(const QString& nick);
+    void userDisconnected_fromPeer_fromClient_fromServer(const QString& nick);
+    void historyForNewUser_fromPeer_fromClient_fromServer(QList<QString>& history);
+    void showPeers_fromPeer_fromClient_fromServer(const QList<QPair<QString, quint16>>& peers);
 
 private slots:
-    void recordingNewMsgEverywhere(QString sender, QString newMsg);
+    // С передачей до UI.
+    void newConnection(const QString& nick);                        // от клиента
+    void disconnection(const QString& nick);                        // от клиента
+    void newMessage(const QString& from, const QString& message);   // от клиента
+    void gettingHistoryFromServer(QString& stringHistory);          // от клиента
 
+    // Заполнение внутренних полей пира.
+    void successfullConnection_fromClient();                        // от клиента
+    void gettingNewPeersFromServer(QString& stringPeers);           // от клиента
+
+    void connectingToServer();
 };
 
 #endif // PEER_H
